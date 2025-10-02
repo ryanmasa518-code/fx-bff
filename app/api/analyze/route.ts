@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 
-const TIMEOUT_MS = 8000;
+const TIMEOUT_MS = 15000;
 
 async function withTimeout<T>(p: Promise<T>, ms: number) {
   return Promise.race([
