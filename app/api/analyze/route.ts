@@ -74,3 +74,58 @@ export async function POST(req: Request) {
     });
   }
 }
+
+type PresetName = "default" | "light" | "trend" | "mean_revert";
+
+const PRESETS: Record<PresetName, any> = {
+  default: {
+    rsi: { period: 14 },
+    macd: { fast: 12, slow: 26, signal: 9 },
+    bb: { period: 20, stddev: 2 },
+    sma: [{ period: 20 }, { period: 50 }],
+    ema: [{ period: 20 }, { period: 50 }],
+  },
+  light: {
+    rsi: { period: 14 },
+  },
+  trend: {
+    sma: [{ period: 50 }, { period: 200 }],
+    ema: [{ period: 20 }, { period: 50 }],
+  },
+  mean_revert: {
+    rsi: { period: 14 },
+    bb: { period: 20, stddev: 2 },
+  },
+};
+
+// /api/analyze で preset を受けたら indicators にマージ
+// body: { instrument: string, tf: string[], count: number, indicators?: {...}, preset?: PresetName }
+
+function summarize(latest: any) {
+  const notes: string[] = [];
+
+  if (latest?.rsi?.value !== undefined) {
+    const r = latest.rsi.value;
+    if (r <= 30) notes.push(`RSI=${r}（売られ過ぎ）`);
+    else if (r >= 70) notes.push(`RSI=${r}（買われ過ぎ）`);
+    else notes.push(`RSI=${r}`);
+  }
+
+  if (latest?.bb) {
+    const close = latest.close;
+    if (close <= latest.bb.lower) notes.push(`BB下限付近`);
+    else if (close >= latest.bb.upper) notes.push(`BB上限付近`);
+  }
+
+  if (latest?.macd) {
+    const { macd, signal } = latest.macd;
+    if (macd !== undefined && signal !== undefined) {
+      if (macd < signal) notes.push(`MACDデッドクロス`);
+      else if (macd > signal) notes.push(`MACDゴールデンクロス`);
+    }
+  }
+
+  if (latest?.adx?.value >= 25) notes.push(`ADX${latest.adx.value}（トレンド強め）`);
+
+  return notes.join('、') || '所見なし';
+}
